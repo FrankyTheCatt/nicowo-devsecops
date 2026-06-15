@@ -1,0 +1,16 @@
+title = "Configuracion GitLeaks - Proyecto DEVSecOps"
+
+[allowlist]
+description = "Archivos permitidos"
+paths = [
+  '''.gitleaks.toml''',
+  '''.env.example''',
+  '''src/__tests__/''',
+]
+
+[[rules]]
+id = "generic-api-key"
+description = "API Key generica"
+regex = '''(?i)(api_key|apikey|api-key)\s*[=:]\s*['"]?[a-zA-Z0-9]{20,}['"]?'''
+entropy = 3.5
+tags = ["api", "secret"]
