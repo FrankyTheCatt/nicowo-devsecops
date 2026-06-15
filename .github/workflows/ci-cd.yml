@@ -219,7 +219,8 @@ jobs:
           working-directory: .
 
       - name: Notificar deploy exitoso
-        run: echo "Deploy exitoso: ${{ steps.deploy.outputs.url }}"
+        run: |
+          echo "Deploy exitoso: ${{ steps.deploy.outputs.url }}"
 
   dast:
     name: DAST - OWASP ZAP
