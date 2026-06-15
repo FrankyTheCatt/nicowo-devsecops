@@ -16,15 +16,40 @@ jobs:
   secret-scan:
     name: Detectar Secretos Expuestos
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Ejecutar GitLeaks
-        uses: gitleaks/gitleaks-action@v2
+      - name: Instalar GitLeaks
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_VERSION: 8.24.3
+        run: |
+          curl -sSfL -o gitleaks.tar.gz "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tar -xzf gitleaks.tar.gz gitleaks
+          sudo install -m 755 gitleaks /usr/local/bin/gitleaks
+          rm gitleaks.tar.gz gitleaks
+          gitleaks version
+
+      - name: Ejecutar GitLeaks
+        run: |
+          gitleaks detect \
+            --source . \
+            --config .gitleaks.toml \
+            --redact \
+            --verbose \
+            --exit-code 1 \
+            --report-format sarif \
+            --report-path gitleaks-results.sarif
+
+      - name: Subir reporte GitLeaks
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gitleaks-results
+          path: gitleaks-results.sarif
 
       - name: detect-secrets baseline
         run: |
