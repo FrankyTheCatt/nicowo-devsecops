@@ -232,23 +232,43 @@ jobs:
     runs-on: ubuntu-latest
     needs: docker
     if: github.ref == 'refs/heads/main'
+    outputs:
+      ready: ${{ steps.vercel-secrets.outputs.ready }}
+      url: ${{ steps.deploy.outputs.url }}
     environment:
       name: production
       url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Verificar secrets de Vercel
+        id: vercel-secrets
+        shell: bash
+        run: |
+          if [[ -n "$VERCEL_TOKEN" && -n "$VERCEL_ORG_ID" && -n "$VERCEL_PROJECT_ID" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "Secrets de Vercel no configurados; se omite deploy automatico."
+          fi
+
       - name: Deploy a Vercel
         id: deploy
+        if: steps.vercel-secrets.outputs.ready == 'true'
         uses: amondnet/vercel-action@v25
         with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-token: ${{ env.VERCEL_TOKEN }}
+          vercel-org-id: ${{ env.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ env.VERCEL_PROJECT_ID }}
           vercel-args: --prod
           working-directory: .
 
       - name: Notificar deploy exitoso
+        if: steps.vercel-secrets.outputs.ready == 'true'
         run: |
           echo "Deploy exitoso: ${{ steps.deploy.outputs.url }}"
 
@@ -256,14 +276,14 @@ jobs:
     name: DAST - OWASP ZAP
     runs-on: ubuntu-latest
     needs: deploy
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' && needs.deploy.outputs.ready == 'true'
     steps:
       - uses: actions/checkout@v4
 
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.11.0
         with:
-          target: "https://example.com"
+          target: ${{ needs.deploy.outputs.url }}
           rules_file_name: .zap/rules.tsv
           cmd_options: -I
 
